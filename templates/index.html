@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>PDF to VRChat Slide</title>
+    <style>
+        body { font-family: 'Pretendard', sans-serif; background: #0f0f0f; color: white; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .container { text-align: center; border: 2px dashed #444; padding: 40px; border-radius: 20px; width: 420px; background: #1a1a1a; transition: 0.3s; }
+        /* 드래그 중일 때 디자인 변경 */
+        .container.dragover { background: #222; border-color: #00ff88; transform: scale(1.02); }
+        #loading { display: none; margin-top: 20px; color: #00ff88; font-weight: bold; }
+        .btn { background: #00ff88; color: black; border: none; padding: 12px 25px; border-radius: 8px; cursor: pointer; font-weight: bold; margin-top: 20px; width: 100%; }
+        #result-box { display: none; margin-top: 30px; padding: 20px; background: #222; border-radius: 10px; border: 1px solid #333; animation: fadeIn 0.5s; }
+        .url-text { word-break: break-all; color: #00ff88; font-family: monospace; font-size: 13px; margin-bottom: 15px; display: block; background: #000; padding: 10px; border-radius: 5px; }
+        .copy-btn { background: #444; color: white; border: none; padding: 10px; border-radius: 5px; cursor: pointer; width: 100%; font-size: 13px; font-weight: bold; }
+        .copy-btn:hover { background: #555; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body>
+    <div class="container" id="drop-zone">
+        <h1>PDF 슬라이드 변환기</h1>
+        <p id="status-msg" style="color: #888;">PDF 파일을 여기로 드래그하거나 클릭하세요</p>
+        
+        <input type="file" id="file-input" style="display: none;" accept="application/pdf">
+        <button class="btn" id="select-btn">파일 선택 및 업로드</button>
+        
+        <div id="loading">🚀 변환 및 업로드 중...<br>(최대 1분 소요)</div>
+
+        <div id="result-box">
+            <h3 style="margin-top: 0;">✅ 생성 완료!</h3>
+            <span id="video-url" class="url-text"></span>
+            <button class="copy-btn" onclick="copyUrl()">주소 복사하기</button>
+            <p style="font-size: 11px; color: #666; margin-top: 10px;">복사한 주소를 VRChat URL 칸에 넣으세요!</p>
+        </div>
+    </div>
+
+    <script>
+        const dropZone = document.getElementById('drop-zone');
+        const fileInput = document.getElementById('file-input');
+        const selectBtn = document.getElementById('select-btn');
+
+        // 1. 클릭으로 파일 선택
+        selectBtn.onclick = () => fileInput.click();
+        fileInput.onchange = (e) => handleUpload(e.target.files[0]);
+
+        // 2. 드래그 앤 드롭 인터랙션
+        dropZone.ondragover = (e) => { e.preventDefault(); dropZone.classList.add('dragover'); };
+        dropZone.ondragleave = () => { dropZone.classList.remove('dragover'); };
+        dropZone.ondrop = (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            handleUpload(e.dataTransfer.files[0]);
+        };
+
+        // 3. 파일 업로드 로직
+        function handleUpload(file) {
+            if (!file || file.type !== 'application/pdf') { alert('PDF 파일만 가능합니다!'); return; }
+
+            const formData = new FormData();
+            formData.append('pdf_file', file);
+
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('result-box').style.display = 'none';
+            document.getElementById('status-msg').innerText = "파일 처리 중...";
+
+            fetch('/upload', { method: 'POST', body: formData })
+            .then(res => res.json())
+            .then(data => {
+                document.getElementById('loading').style.display = 'none';
+                if (data.video_url) {
+                    document.getElementById('result-box').style.display = 'block';
+                    document.getElementById('video-url').innerText = data.video_url;
+                    document.getElementById('status-msg').innerText = "업로드 완료!";
+                } else {
+                    alert('에러 발생: ' + (data.error || '알 수 없는 오류'));
+                    document.getElementById('status-msg').innerText = "에러가 발생했습니다.";
+                }
+            });
+        }
+
+        // 4. 주소 복사 기능
+        function copyUrl() {
+            const url = document.getElementById('video-url').innerText;
+            navigator.clipboard.writeText(url).then(() => {
+                alert('주소가 복사되었습니다! VRChat으로 가세요!');
+            });
+        }
+    </script>
+</body>
+</html>
