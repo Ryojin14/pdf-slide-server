@@ -33,13 +33,16 @@ def index():
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
+    print("☁️ [서버] 파일 수신 시작...", flush=True) # 이 로그가 찍히는지 확인!
     if 'pdf_file' not in request.files: return jsonify({'error': '파일 없음'}), 400
     file = request.files['pdf_file']
-    if file.filename == '': return jsonify({'error': '선택된 파일 없음'}), 400
-
+    
+    print(f"📂 [서버] 파일명: {file.filename} 접수 완료", flush=True)
+    
     filepath = os.path.join(UPLOAD_FOLDER, file.filename)
     file.save(filepath)
     
+    print("⚙️ [서버] 변환 엔진 가동...", flush=True)
     output_video = os.path.join(OUTPUT_FOLDER, 'presentation.mp4')
 
     # 변환 시도
