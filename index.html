@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>PDF to VRChat Slide</title>
+    <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.8/dist/web/static/pretendard.css" />
+    <style>
+        :root {
+            --page-bg: #0f0f0f;         /* 전체 배경 (어두움) */
+            --container-bg: #ffffff;     /* 중앙 박스 배경 (요청하신 흰색) */
+            --primary-blue: #0254a6;     /* 학교 메인 블루 */
+            --dark-blue: #0c2a6e;        /* 포인트 블루 */
+            --accent-red: #ed1c24;       /* 포인트 레드 */
+            --text-dark: #222222;        /* 흰 배경 위 제목 색상 */
+            --text-gray: #666666;        /* 흰 배경 위 설명 색상 */
+        }
+
+        body {
+            font-family: 'Pretendard', sans-serif;
+            background: var(--page-bg);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        /* 중앙 컨테이너: 흰색 배경 버전 */
+        .container {
+            text-align: center;
+            border: 1px solid #e1e1e1; /* 테두리는 연하게 */
+            padding: 50px 40px;
+            border-radius: 20px;
+            width: 450px;
+            background: var(--container-bg);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+            transition: all 0.3s ease;
+        }
+
+        /* 드래그 중일 때 효과 */
+        .container.dragover {
+            border: 2px dashed var(--primary-blue);
+            background: #f8faff; /* 아주 연한 파란빛 */
+            transform: scale(1.02);
+        }
+
+        /* 로고 영역 (static 폴더 내 파일명과 맞춰주세요) */
+        .logo-area {
+            margin-bottom: 25px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 20px;
+        }
+        .logo-area img {
+            height: 35px; 
+            object-fit: contain;
+            /* 흰 배경이므로 이미지가 어두우면 그대로, 밝으면 필터 조정 가능 */
+        }
+
+        h1 {
+            font-size: 22px;
+            font-weight: 700;
+            margin: 0 0 12px 0;
+            color: var(--text-dark); /* 어두운 색으로 변경 */
+            letter-spacing: -0.5px;
+        }
+        
+        .color-bar {
+            width: 40px;
+            height: 4px;
+            background: var(--dark-blue);
+            margin: 0 auto 20px auto;
+            border-radius: 2px;
+        }
+
+        p {
+            color: var(--text-gray); /* 가독성 좋은 회색 */
+            font-size: 14px;
+            margin-bottom: 35px;
+            line-height: 1.5;
+        }
+
+        /* 버튼: 요청하신 #0254a6 컬러 */
+        .btn {
+            background: var(--primary-blue);
+            color: white;
+            border: none;
+            padding: 15px 0;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 15px;
+            width: 100%;
+            transition: 0.2s;
+            box-shadow: 0 4px 12px rgba(2, 84, 166, 0.2);
+        }
+        .btn:hover {
+            background: var(--dark-blue);
+            transform: translateY(-2px);
+        }
+
+        #loading {
+            display: none;
+            margin-top: 25px;
+            color: var(--primary-blue);
+            font-weight: 700;
+        }
+
+        /* 결과 박스 (흰 배경 위에서 구분되도록 연한 회색) */
+        #result-box {
+            display: none;
+            margin-top: 30px;
+            padding: 20px;
+            background: #f9f9f9;
+            border-radius: 12px;
+            border: 1px solid #eee;
+            animation: fadeIn 0.5s;
+            text-align: left;
+        }
+
+        .result-title {
+            color: var(--accent-red);
+            font-size: 13px;
+            font-weight: 700;
+            margin-bottom: 10px;
+            display: block;
+        }
+
+        .url-text {
+            word-break: break-all;
+            color: #333;
+            font-family: monospace;
+            font-size: 12px;
+            margin-bottom: 12px;
+            display: block;
+            background: #fff;
+            padding: 12px;
+            border-radius: 6px;
+            border: 1px solid #ddd;
+        }
+
+        .copy-btn {
+            background: #333;
+            color: white;
+            border: none;
+            padding: 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            width: 100%;
+            font-size: 13px;
+        }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body>
+    <div class="container" id="drop-zone">
+        
+        <div class="logo-area">
+            <img src="/static/logo1.png" alt="학교">
+            <img src="/static/logo2.png" alt="vrc">
+        </div>
+
+        <h1>VRCHAT-프레젠테이션용 PDF 변환기</h1>
+        <div class="color-bar"></div>
+        
+        <p id="status-msg">PDF 파일을 여기로 드래그하거나 클릭하세요</p>
+        
+        <input type="file" id="file-input" style="display: none;" accept="application/pdf">
+        <button class="btn" id="select-btn">파일 선택 및 업로드</button>
+        
+        <div id="loading">🔄 처리 중입니다. 잠시만 기다려주세요.</div>
+
+        <div id="result-box">
+            <span class="result-title">✅ 변환 및 업로드 성공!</span>
+            <span id="video-url" class="url-text"></span>
+            <button class="copy-btn" onclick="copyUrl()">주소 복사하기</button>
+        </div>
+    </div>
+
+    <script>
+        // 자바스크립트 기능은 기존과 완벽히 동일합니다.
+        const dropZone = document.getElementById('drop-zone');
+        const fileInput = document.getElementById('file-input');
+        const selectBtn = document.getElementById('select-btn');
+
+        selectBtn.onclick = () => fileInput.click();
+        fileInput.onchange = (e) => handleUpload(e.target.files[0]);
+
+        dropZone.ondragover = (e) => { e.preventDefault(); dropZone.classList.add('dragover'); };
+        dropZone.ondragleave = () => { dropZone.classList.remove('dragover'); };
+        dropZone.ondrop = (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            handleUpload(e.dataTransfer.files[0]);
+        };
+
+        function handleUpload(file) {
+            if (!file || file.type !== 'application/pdf') { alert('PDF 파일만 가능합니다!'); return; }
+            const formData = new FormData();
+            formData.append('pdf_file', file);
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('result-box').style.display = 'none';
+            fetch('/upload', { method: 'POST', body: formData })
+            .then(res => res.json())
+            .then(data => {
+                document.getElementById('loading').style.display = 'none';
+                if (data.video_url) {
+                    document.getElementById('result-box').style.display = 'block';
+                    document.getElementById('video-url').innerText = data.video_url;
+                } else { alert('에러: ' + data.error); }
+            });
+        }
+
+        function copyUrl() {
+            const url = document.getElementById('video-url').innerText;
+            navigator.clipboard.writeText(url).then(() => { alert('주소가 복사되었습니다!'); });
+        }
+    </script>
+</body>
+</html>
