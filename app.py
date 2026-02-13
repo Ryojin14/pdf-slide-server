@@ -17,7 +17,7 @@ app = Flask(__name__)
 
 # ▼▼▼ [핵심 2] 사용자님이 지적하신 저장소 정보 수정 ▼▼▼
 # 스크린샷 보고 맞춘 정보입니다. 틀리면 수정해주세요!
-GITHUB_TOKEN = "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"  # (여기는 본인 토큰 그대로 두세요!)
+GITHUB_TOKEN = "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"  # (여기는 본인 토큰 그대로 두세요!)
 REPO_OWNER = "Ryojin14"        # 사용자님 아이디
 REPO_NAME = "pdf-slide-server" # 새로 만든 저장소 이름!
 

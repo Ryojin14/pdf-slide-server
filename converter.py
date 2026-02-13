@@ -1,51 +1,45 @@
 import fitz  # PyMuPDF
-import numpy as np
 import os
 from moviepy.editor import ImageSequenceClip
-import gc # 메모리 청소부
+import shutil
 
 def convert_pdf_to_video(pdf_path, output_path):
+    temp_dir = "temp_frames"
     try:
+        if os.path.exists(temp_dir): shutil.rmtree(temp_dir)
+        os.makedirs(temp_dir)
+
         doc = fitz.open(pdf_path)
-        img_list = []
+        frame_files = []
         
-        print(f"📄 PDF 변환 시작: 총 {len(doc)}페이지")
-        
-        # [수정 1] 화질 다이어트
-        # 기존 2.0 -> 1.0 (기본 해상도)
-        # 무료 서버에서는 이 정도가 한계입니다. (글씨는 충분히 보입니다!)
-        mat = fitz.Matrix(1.0, 1.0) 
+        print(f"📄 초경량 변환 시작: {len(doc)}페이지")
 
+        # 1. 페이지를 하나씩 이미지 파일로 저장 (메모리 아끼기)
         for i, page in enumerate(doc):
-            pix = page.get_pixmap(matrix=mat)
-            img = np.frombuffer(pix.samples, dtype=np.uint8).reshape(pix.h, pix.w, 3)
-            img_list.append(img)
-            
-            # [수정 2] 메모리 폭발 방지
-            # 5장 처리할 때마다 찌꺼기 청소
-            if i % 5 == 0: gc.collect()
-
-        if not img_list: return False
-
-        print("🎥 영상 인코딩 중... (속도 우선 모드)")
-
-        # [수정 3] 인코딩 속도 최적화
-        clip = ImageSequenceClip(img_list, fps=1) 
+            pix = page.get_pixmap(matrix=fitz.Matrix(1.0, 1.0))
+            frame_path = os.path.join(temp_dir, f"frame_{i:04d}.png")
+            pix.save(frame_path)
+            frame_files.append(frame_path)
         
+        doc.close()
+
+        # 2. 파일 경로 리스트를 이용해 영상 제작 (RAM 사용량 최소화)
+        clip = ImageSequenceClip(frame_files, fps=1)
         clip.write_videofile(
             output_path, 
             fps=24, 
             codec='libx264', 
             audio=False, 
-            preset='ultrafast',  # ★핵심: 화질 압축을 대충 해서 속도를 올림
-            threads=1,           # ★핵심: CPU 1개만 써서 뻗는 것 방지
+            preset='ultrafast',
+            threads=1,
             logger=None
         )
         
-        print(f"✅ 변환 완료: {output_path}")
-        doc.close()
+        print("✅ 변환 완료!")
         return True
 
     except Exception as e:
-        print(f"❌ 변환 오류: {e}")
+        print(f"❌ 오류 발생: {e}")
         return False
+    finally:
+        if os.path.exists(temp_dir): shutil.rmtree(temp_dir) # 임시 폴더 삭제
