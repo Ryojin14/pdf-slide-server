@@ -1,57 +1,70 @@
 import fitz  # PyMuPDF
 import os
-from moviepy.editor import ImageSequenceClip
 import shutil
+from moviepy.editor import ImageSequenceClip
 
 def convert_pdf_to_video(pdf_path, output_path):
-    # 매번 깨끗한 임시 폴더 사용
-    temp_dir = "absolute_order_frames"
+    temp_dir = "final_frames"
     try:
-        if os.path.exists(temp_dir): shutil.rmtree(temp_dir)
+        # 1. 기존 임시 폴더 싹 지우고 새로 만들기 (잔상 방지)
+        if os.path.exists(temp_dir):
+            shutil.rmtree(temp_dir)
         os.makedirs(temp_dir)
 
         doc = fitz.open(pdf_path)
-        print(f"📦 [순서 고정] 총 {len(doc)}페이지 변환 시작", flush=True)
+        print(f"🔥 [최종] 총 {len(doc)}페이지 변환 시작", flush=True)
 
-        # ★ 핵심: 생성되는 즉시 리스트에 넣어 '절대 순서'를 보장합니다.
-        ordered_frame_files = []
+        frame_files = []
         
-        for i in range(len(doc)):
-            page = doc[i]
-            # 해상도를 1.0으로 고정하여 서버 메모리 안정성 확보
+        # 2. 이미지 추출 (이름을 0001.png 처럼 만들어서 강제 정렬 준비)
+        for i, page in enumerate(doc):
+            # 해상도 1.0 (메모리 안전빵)
             pix = page.get_pixmap(matrix=fitz.Matrix(1.0, 1.0))
             
-            frame_path = os.path.join(temp_dir, f"frame_{i:04d}.png")
-            pix.save(frame_path)
+            # 파일명을 0000, 0001, 0002... 로 저장
+            filename = f"frame_{i:04d}.png"
+            frame_path = os.path.join(temp_dir, filename)
             
-            # 여기서 리스트에 바로 추가하므로 os.listdir()를 쓸 필요가 없습니다.
-            ordered_frame_files.append(frame_path)
-            print(f"📝 {i+1}페이지 저장 완료", flush=True)
-        
+            pix.save(frame_path)
+            frame_files.append(frame_path)
+            
+            print(f"  - {i+1}페이지 저장됨", flush=True)
+
         doc.close()
 
-        # 영상 제작: 1초당 1프레임 (1페이지 = 1초)
-        # ordered_frame_files 리스트는 이미 0, 1, 2, 3 순서가 완벽합니다.
-        clip = ImageSequenceClip(ordered_frame_files, fps=1)
+        # 3. ★핵심★ 파일 이름 순서대로 강제 정렬 (1, 10, 2 사태 방지)
+        frame_files.sort()
+        print(f"📑 정렬된 파일 목록 확인: {frame_files[0]} ... {frame_files[-1]}", flush=True)
+
+        # 4. 영상 제작 (1초 = 1페이지)
+        print("🎬 영상 굽는 중... (VRChat 최적화)", flush=True)
+        clip = ImageSequenceClip(frame_files, fps=1)
         
-        # [VRChat 탐색 최적화]
-        # -g 1: 모든 프레임을 독립된 사진으로 만듦 (이전/다음 버튼 클릭 시 즉시 반응)
         clip.write_videofile(
             output_path, 
             fps=1, 
             codec='libx264', 
             audio=False, 
-            ffmpeg_params=["-g", "1", "-keyint_min", "1", "-pix_fmt", "yuv420p"],
+            # [VRChat 전용 옵션]
+            # -g 1 : 모든 프레임을 키프레임으로 (탐색 시 화면 깨짐/섞임 100% 방지)
+            # -pix_fmt yuv420p : 비디오 플레이어 호환성 확보
+            ffmpeg_params=["-g", "1", "-pix_fmt", "yuv420p"],
             preset='ultrafast',
             threads=1,
-            logger=None
+            logger=None # 로그 지저분해지는 것 방지
         )
         
-        print(f"✅ [최종 성공] {len(doc)}페이지 영상 제작 완료!", flush=True)
+        print("✅ [성공] 변환 완료! 이제 뒤죽박죽 안 됩니다.", flush=True)
         return True
 
     except Exception as e:
-        print(f"❌ 치명적 에러: {e}", flush=True)
+        # 에러가 나면 뭔지 정확히 알려줌
+        print(f"❌ [치명적 오류]: {e}", flush=True)
+        import traceback
+        traceback.print_exc() # 상세 에러 위치 출력
         return False
+        
     finally:
-        if os.path.exists(temp_dir): shutil.rmtree(temp_dir)
+        # 청소
+        if os.path.exists(temp_dir):
+            shutil.rmtree(temp_dir)
