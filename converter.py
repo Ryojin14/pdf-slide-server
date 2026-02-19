@@ -7,35 +7,36 @@ def convert_pdf_to_video(pdf_path, output_path):
         doc = fitz.open(pdf_path)
         frame_files = []
         
-        # [속도 핵심 1] 화질 다이어트 (1, 1)
-        # 2배 확대(Matrix 2,2)는 무료 서버에서 너무 느립니다. 
-        # 원본 해상도(1, 1)로 해도 VRChat에서는 글씨 잘 보입니다.
+        # 1. 페이지 추출 (가장 가벼운 1,1 유지)
         for i in range(len(doc)):
-            pix = doc[i].get_pixmap(matrix=fitz.Matrix(1, 1)) 
+            pix = doc[i].get_pixmap(matrix=fitz.Matrix(1, 1))
             path = f"f_{i}.png"
             pix.save(path)
             frame_files.append(path)
         
-        # [기능 유지] 마지막 페이지 복사 (재생 끝남 방지)
+        # [필수] 마지막 페이지 복사 (영상 끝남 방지)
         if frame_files:
             frame_files.append(frame_files[-1])
             
         final_frames = frame_files
         
-        # [속도 핵심 2] 영상 제작 옵션 최적화
+        # 2. 영상 제작 (가성비 세팅)
+        # fps=1 (입력) -> fps=4 (출력) : 4배만 뻥튀기 (24배는 너무 무거움)
         clip = ImageSequenceClip(final_frames, fps=1)
+        
         clip.write_videofile(
             output_path, 
-            fps=1, 
+            fps=4,  # [핵심] 4프레임이면 VRChat도 속고 서버도 버팁니다.
             codec='libx264', 
             audio=False, 
             logger=None,
-            # threads=4: CPU 병렬 처리로 속도 향상
-            # preset='ultrafast': 압축률 포기하고 속도 몰빵 (파일 크기는 조금 커지지만 속도는 짱)
-            preset='ultrafast', 
-            threads=4,
-            # -g 1: 탐색(Seek) 반응 속도 최적화 (깜빡임 방지)
-            ffmpeg_params=['-g', '1', '-bf', '0', '-pix_fmt', 'yuv420p']
+            preset='ultrafast', # 속도 최우선
+            threads=4,          # 멀티코어 사용
+            # [마법의 옵션 설명]
+            # -tune stillimage: "이거 PPT니까 쓸데없는 계산 하지마" (속도 대폭 향상)
+            # -g 4: 1초(4프레임)마다 키프레임 박기 -> 탐색 오류 해결
+            # -bf 0: 예측 프레임 끄기 -> 깜빡임 완전 제거
+            ffmpeg_params=['-tune', 'stillimage', '-g', '4', '-bf', '0', '-pix_fmt', 'yuv420p']
         )
         
         # 청소
