@@ -1,6 +1,6 @@
 flask
 opencv-python-headless
-moviepy==1.0.3
+moviepy<2.0
 numpy
 pymupdf
 requests
